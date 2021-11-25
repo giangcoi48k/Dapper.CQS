@@ -16,6 +16,6 @@ namespace Dapper.CQS
 
         public bool HasPreviousPage => Page > 1;
 
-        public IReadOnlyCollection<T> Items { get; set; }
+        public IReadOnlyCollection<T> Items { get; set; } = default!;
     }
 }
