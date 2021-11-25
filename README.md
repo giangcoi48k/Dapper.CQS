@@ -32,3 +32,7 @@ The default CommandType is StoredProcedure, which means you will specify the Pro
 
 Take a look at specific examples in the Example project.
 
+# Install from nuget
+> Install-Package Dapper.CQS
+
+> dotnet add package Dapper.CQS
