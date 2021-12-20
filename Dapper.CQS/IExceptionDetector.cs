@@ -4,6 +4,6 @@ namespace Dapper.CQS
 {
     public interface IExceptionDetector
     {
-        bool ShouldRetryOn(Exception ex);
+        bool ShouldRetryOn(Exception? ex);
     }
 }

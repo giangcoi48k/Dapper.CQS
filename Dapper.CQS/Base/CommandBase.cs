@@ -10,12 +10,12 @@ namespace Dapper.CQS
 
         public virtual void Execute(IDbConnection connection, IDbTransaction? transaction)
         {
-            connection.Execute(Procedure, GetParams(), transaction, commandType: CommandType);
+            connection.Execute(Procedure, GetParams(), TransactionRequired ? transaction : null, CommandTimeout, CommandType);
         }
 
         public virtual async Task ExecuteAsync(IDbConnection connection, IDbTransaction? transaction, CancellationToken cancellationToken = default)
         {
-            await connection.ExecuteAsync(Procedure, GetParams(), transaction, commandType: CommandType);
+            await connection.ExecuteAsync(Procedure, GetParams(), TransactionRequired ? transaction : null, CommandTimeout, CommandType);
         }
     }
 
@@ -25,12 +25,12 @@ namespace Dapper.CQS
 
         public virtual T? Execute(IDbConnection connection, IDbTransaction? transaction)
         {
-            return connection.ExecuteScalar<T>(Procedure, GetParams(), transaction, commandType: CommandType);
+            return connection.ExecuteScalar<T>(Procedure, GetParams(), TransactionRequired ? transaction : null, CommandTimeout, CommandType);
         }
 
         public virtual async Task<T?> ExecuteAsync(IDbConnection connection, IDbTransaction? transaction, CancellationToken cancellationToken = default)
         {
-            return await connection.ExecuteScalarAsync<T>(Procedure, GetParams(), transaction, commandType: CommandType);
+            return await connection.ExecuteScalarAsync<T>(Procedure, GetParams(), TransactionRequired ? transaction : null, CommandTimeout, CommandType);
         }
     }
 }

@@ -1,54 +1,69 @@
-﻿using Dapper.CQS.Internal;
+﻿using Dapper.CQS;
+using Dapper.CQS.Internal;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Registry;
 using System;
-using System.Linq;
-using System.Reflection;
 
 namespace Dapper.CQS
 {
     public static class ServiceCollectionExtensions
     {
-        private static readonly Type _repositoryType = typeof(IRepository);
-
-        public static IServiceCollection AddUnitOfWork(this IServiceCollection services, Action<UnitOfWorkOptions> options, params Assembly[] assemblies)
+        private static IServiceCollection ConfigureRetryPolicies<TContext>(this IServiceCollection services, int retryCount)
         {
-            var uowOptions = new UnitOfWorkOptions();
-            options.Invoke(uowOptions);
-            services.AddScoped<IUnitOfWorkFactory>(sp => new UnitOfWorkFactory(sp, uowOptions.ConnectionString, uowOptions.DbProvider));
-            services.AddScoped(sp => sp.GetRequiredService<IUnitOfWorkFactory>().Create(
-                  uowOptions.ConnectionString
-                , uowOptions.Transactional
-                , uowOptions.IsolationLevel
-                , uowOptions.RetryOptions
-            ));
-            services.AddScoped(sp => sp.GetRequiredService<IUnitOfWorkFactory>().CreateAutoCommit(
-                  uowOptions.ConnectionString
-                , uowOptions.RetryOptions
-            ));
-            return services.AddRepositories(assemblies);
-        }
+            static TimeSpan Sleep(int retryAttempt) => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+            static bool ShouldRetryOn(IServiceProvider sp, Exception ex) => sp.GetRequiredService<IExceptionDetector>().ShouldRetryOn(ex);
+            static void OnRetry(IServiceProvider sp, Exception ex, TimeSpan t) =>
+                sp.GetRequiredService<ILogger<TContext>>().LogWarning(ex, "Retries after {TimeOut}s ({ExceptionMessage})", $"{t.TotalSeconds:n1}", ex.Message);
 
-        private static IServiceCollection AddRepositories(this IServiceCollection services, params Assembly[] assemblies)
-        {
-            if (assemblies?.Any() != true) assemblies = new[] { Assembly.GetEntryAssembly() };
-            foreach (var type in assemblies.Distinct().SelectMany(x => x.GetTypes().Where(FilterRepositories)))
+            services.TryAddSingleton<IExceptionDetector, SqlServerTransientExceptionDetector>();
+
+            services.TryAddSingleton<IReadOnlyPolicyRegistry<string>>(sp =>
             {
-                services.AddScoped(GetServiceType(type), type);
-            }
+                var registry = new PolicyRegistry()
+                {
+                    ["sync"] = Policy.Handle<SqlException>(ex => ShouldRetryOn(sp, ex)).WaitAndRetry(retryCount, Sleep, (ex, t) => OnRetry(sp, ex, t)),
+                    ["async"] = Policy.Handle<SqlException>(ex => ShouldRetryOn(sp, ex)).WaitAndRetryAsync(retryCount, Sleep, (ex, t) => OnRetry(sp, ex, t))
+                };
+                return registry;
+            });
             return services;
         }
 
-        private static Type GetServiceType(Type implType)
+        public static IServiceCollection AddUnitOfWork<TContext>(this IServiceCollection services, Action<UnitOfWorkOptions<TContext>>? options = null)
+            where TContext : UnitOfWorkBase
         {
-            return implType
-                .GetInterfaces()
-                .Where(t => t != _repositoryType)
-                .FirstOrDefault() ?? _repositoryType;
+            var uowOptions = new UnitOfWorkOptions<TContext>();
+            if (options != null)
+            {
+                options(uowOptions);
+                uowOptions.IsConfigured = true;
+            }
+            services.AddSingleton(uowOptions);
+            services.AddScoped<TContext>();
+            services.TryAddTransient<ServiceFactory>(sp => sp.GetRequiredService);
+            services.ConfigureRetryPolicies<TContext>(uowOptions.RetryCount);
+            return services;
         }
 
-        private static bool FilterRepositories(Type t)
+        public static IServiceCollection AddUnitOfWork<TService, TContext>(this IServiceCollection services, Action<UnitOfWorkOptions<TContext>>? options = null)
+            where TService : class, IUnitOfWork
+            where TContext : UnitOfWorkBase, TService
         {
-            return _repositoryType.IsAssignableFrom(t) && t.IsClass && !t.IsAbstract;
+            var uowOptions = new UnitOfWorkOptions<TContext>();
+            if (options != null)
+            {
+                options(uowOptions);
+                uowOptions.IsConfigured = true;
+            }
+            services.AddSingleton(uowOptions);
+            services.AddScoped<TService, TContext>();
+            services.TryAddTransient<ServiceFactory>(sp => sp.GetRequiredService);
+            services.ConfigureRetryPolicies<TContext>(uowOptions.RetryCount);
+            return services;
         }
     }
 }

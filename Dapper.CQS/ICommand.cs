@@ -4,11 +4,6 @@ using System.Threading.Tasks;
 
 namespace Dapper.CQS
 {
-    public interface ITransactionRequired
-    {
-        bool TransactionRequired { get; }
-    }
-
     public interface ICommand : ITransactionRequired
     {
         void Execute(IDbConnection connection, IDbTransaction? transaction);
