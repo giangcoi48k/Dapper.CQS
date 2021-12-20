@@ -7,9 +7,9 @@
 		<Authors>giangcoi48k</Authors>
 		<Company>FiinGroup</Company>
 		<Product>Dapper.CQS</Product>
-		<AssemblyVersion>1.0.0</AssemblyVersion>
-		<FileVersion>1.0.0</FileVersion>
-		<PackageVersion>1.0.0</PackageVersion>
+		<AssemblyVersion>1.0.1</AssemblyVersion>
+		<FileVersion>1.0.1</FileVersion>
+		<PackageVersion>1.0.1</PackageVersion>
 		<Description>A simple unit of work implementation on top of Dapper, with some basic CQS in mind</Description>
 		<PackageProjectUrl>https://github.com/giangcoi48k/Dapper.CQS</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
