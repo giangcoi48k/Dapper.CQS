@@ -1,4 +1,5 @@
 using Dapper.CQS;
+using Dapper.CQS.Example;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,10 +10,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddUnitOfWork(options =>
-{
-    options.ConnectionString = "Data Source=localhost;database=RealEstate;Integrated Security=true;TrustServerCertificate=True";
-});
+builder.Services.AddUnitOfWork<IUnitOfWork, UnitOfWork>();
 
 var app = builder.Build();
 
